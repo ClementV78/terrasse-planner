@@ -1,6 +1,6 @@
 # Terrasse Planner
 
-![Aperçu de Terrasse Planner](https://user-images.githubusercontent.com/placeholder/terrasse-planner-demo.png)
+![Aperçu de Terrasse Planner]image.png
 
 **Terrasse Planner** est une application web intuitive pour dessiner la forme de votre terrasse, calculer sa surface, et simuler la pose de carrelage selon vos paramètres (dimensions, joints, orientation, type de pose, etc.).
 
@@ -26,7 +26,7 @@
 
 ```bash
 # Clonez le dépôt
-git clone https://github.com/<votre-utilisateur>/terrasse-planner.git
+git clone https://github.com/ClementV78/terrasse-planner.git
 cd terrasse-planner
 
 # Installez les dépendances
