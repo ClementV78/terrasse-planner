@@ -9,6 +9,33 @@ export default function App() {
   const containerRef = useRef(null);
   const stageRef = useRef();
 
+  // Largeur dynamique du sidepanel
+  const [sidebarWidth, setSidebarWidth] = useState(510); // 50% plus large que 340px
+  const sidebarRef = useRef();
+  const isResizing = useRef(false);
+
+  // Gestion du drag pour resize
+  useEffect(() => {
+    function onMouseMove(e) {
+      if (isResizing.current && sidebarRef.current) {
+        const min = 220, max = 600;
+        // Correction : calcule la largeur par rapport au conteneur principal (le flex)
+        const mainRect = sidebarRef.current.parentElement.parentElement.getBoundingClientRect();
+        const newWidth = Math.max(min, Math.min(max, e.clientX - mainRect.left));
+        setSidebarWidth(newWidth);
+      }
+    }
+    function onMouseUp() {
+      isResizing.current = false;
+    }
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+  }, []);
+
   // Chargement initial depuis localStorage
   const getInitialPlan = () => {
     try {
@@ -34,6 +61,10 @@ export default function App() {
   const [tileCount, setTileCount] = useState({ full: 0, partial: 0 });
 
   const [useOffcuts, setUseOffcuts] = useState(true);
+
+  // Couleurs personnalisables
+  const [jointColor, setJointColor] = useState('#ffffff'); // blanc par défaut
+  const [tileColor, setTileColor] = useState('#d1d5db'); // gris par défaut
 
   // Fonction pour calculer l'aire (prend points et scale en argument)
   const calculateArea = (pts, scl) => {
@@ -69,18 +100,17 @@ export default function App() {
   useEffect(() => {
     const updateDimensions = () => {
       if (!containerRef.current) return;
-      
-      const container = containerRef.current.parentElement;
-      const newWidth = Math.floor(container.offsetWidth * 0.9);
+      // Largeur totale du conteneur principal (flex)
+      const main = sidebarRef.current.parentElement.parentElement;
+      const totalWidth = main.offsetWidth;
+      const newWidth = Math.floor((totalWidth - sidebarWidth - 16)); // 16 = gap-4
       const newHeight = Math.floor(window.innerHeight * 0.95);
-      
       setStageSize({ width: newWidth, height: newHeight });
     };
-
     updateDimensions();
     window.addEventListener('resize', updateDimensions);
     return () => window.removeEventListener('resize', updateDimensions);
-  }, []);
+  }, [sidebarWidth]);
 
   // Sauvegarde automatique dans localStorage à chaque modification du plan
   useEffect(() => {
@@ -261,7 +291,8 @@ export default function App() {
 
   // Utilisation du hook useTiles pour le calepinage
   const renderTiles = useTiles({
-    points, startPoint, scale, tileW, tileH, spacing, pattern, orientation, getStartCornerType, useOffcuts, setTileCount
+    points, startPoint, scale, tileW, tileH, spacing, pattern, orientation, getStartCornerType, useOffcuts, setTileCount,
+    jointColor, tileColor
   });
 
   // Sauvegarde du plan
@@ -311,8 +342,12 @@ export default function App() {
   };
 
   return (
-    <div className="p-4 grid grid-cols-4 gap-4">
-      <div className="col-span-1 space-y-4">
+    <div className="p-4 flex gap-4 h-screen" style={{minHeight: '100vh'}}>
+      <div
+        ref={sidebarRef}
+        style={{ width: sidebarWidth, minWidth: 220, maxWidth: 600, height: '100%' }}
+        className="relative h-full"
+      >
         <Sidebar
           area={area}
           tileCount={tileCount}
@@ -339,9 +374,18 @@ export default function App() {
           setUseOffcuts={setUseOffcuts}
           handleSave={handleSave}
           handleLoad={handleLoad}
+          jointColor={jointColor}
+          setJointColor={setJointColor}
+          tileColor={tileColor}
+          setTileColor={setTileColor}
+        />
+        {/* Drag handle */}
+        <div
+          style={{ position: 'absolute', top: 0, right: 0, height: '100%', width: 10, cursor: 'ew-resize', zIndex: 50, background: 'transparent' }}
+          onMouseDown={() => { isResizing.current = true; }}
         />
       </div>
-      <div className="col-span-3" ref={containerRef}>
+      <div className="flex-1 h-full" ref={containerRef} style={{width: '100%'}}>
         <DrawingCanvas
           stageSize={stageSize}
           drawing={drawing}

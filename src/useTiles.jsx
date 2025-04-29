@@ -1,7 +1,95 @@
 import { useCallback } from 'react';
 import { Group, Rect } from 'react-konva';
 
-export default function useTiles({ points, startPoint, scale, tileW, tileH, spacing, pattern, orientation, getStartCornerType, useOffcuts, setTileCount }) {
+// Génère un motif rayé (diagonal stripes) pour carreaux partiels
+function getStripesPattern(tileColor) {
+  const size = 12;
+  return document.createElementNS('http://www.w3.org/2000/svg', 'pattern');
+}
+
+// Génère un motif croisé (crosshatch) pour chutes
+function getCrossPattern(tileColor) {
+  const size = 12;
+  return document.createElementNS('http://www.w3.org/2000/svg', 'pattern');
+}
+
+// Génère un canvas 2D pour motif rayé (diagonal stripes)
+function createStripesPattern(tileColor) {
+  const size = 12;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = tileColor;
+  ctx.fillRect(0, 0, size, size);
+  ctx.strokeStyle = '#888';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, size);
+  ctx.lineTo(size, 0);
+  ctx.stroke();
+  return ctx.createPattern(canvas, 'repeat');
+}
+
+// Génère un canvas 2D pour motif croisé (crosshatch)
+function createCrossPattern(tileColor) {
+  const size = 12;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = tileColor;
+  ctx.fillRect(0, 0, size, size);
+  ctx.strokeStyle = '#444';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, size);
+  ctx.lineTo(size, 0);
+  ctx.moveTo(0, 0);
+  ctx.lineTo(size, size);
+  ctx.stroke();
+  return ctx.createPattern(canvas, 'repeat');
+}
+
+// Génère un dataURL pour motif rayé (diagonal stripes)
+function createStripesPatternDataURL(tileColor) {
+  const size = 12;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = tileColor;
+  ctx.fillRect(0, 0, size, size);
+  ctx.strokeStyle = '#888';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, size);
+  ctx.lineTo(size, 0);
+  ctx.stroke();
+  return canvas.toDataURL();
+}
+
+// Génère un dataURL pour motif croisé (crosshatch)
+function createCrossPatternDataURL(tileColor) {
+  const size = 12;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = tileColor;
+  ctx.fillRect(0, 0, size, size);
+  ctx.strokeStyle = '#444';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, size);
+  ctx.lineTo(size, 0);
+  ctx.moveTo(0, 0);
+  ctx.lineTo(size, size);
+  ctx.stroke();
+  return canvas.toDataURL();
+}
+
+export default function useTiles({ points, startPoint, scale, tileW, tileH, spacing, pattern, orientation, getStartCornerType, useOffcuts, setTileCount, jointColor, tileColor }) {
   return useCallback(() => {
     if (!startPoint || points.length < 6) return null;
     const tw = tileW / 100 * scale;
@@ -38,6 +126,11 @@ export default function useTiles({ points, startPoint, scale, tileW, tileH, spac
     const goingDown = !(cornerType === 'bottom-left' || cornerType === 'bottom-right');
     const xSign = goingRight ? 1 : -1;
     const ySign = goingDown ? 1 : -1;
+
+    // Génère les images de pattern une seule fois par couleur
+    const stripesPatternUrl = createStripesPatternDataURL(tileColor);
+    const crossPatternUrl = createCrossPatternDataURL(tileColor);
+
     for (let row = 0; row < nY; row++) {
       const tileY = startPoint.y + ySign * row * (th + sp);
       let col = 0;
@@ -80,13 +173,16 @@ export default function useTiles({ points, startPoint, scale, tileW, tileH, spac
           } else {
             if (useOffcuts) offcuts.push(tw - partWidth);
           }
+          const img = new window.Image();
+          img.src = stripesPatternUrl;
           tiles.push(
             <Group key={`${row}-debut-partial`} x={partStartX} y={tileY} rotation={orientation}>
               <Rect
                 width={partWidth}
                 height={th}
-                fill={color}
-                stroke="gray"
+                fillPatternImage={img}
+                fillPatternRepeat="repeat"
+                stroke={jointColor}
                 strokeWidth={0.5}
               />
             </Group>
@@ -113,8 +209,8 @@ export default function useTiles({ points, startPoint, scale, tileW, tileH, spac
                 <Rect
                   width={tw}
                   height={th}
-                  fill="white"
-                  stroke="gray"
+                  fill={tileColor}
+                  stroke={jointColor}
                   strokeWidth={0.5}
                 />
               </Group>
@@ -139,8 +235,8 @@ export default function useTiles({ points, startPoint, scale, tileW, tileH, spac
                 <Rect
                   width={tw}
                   height={th}
-                  fill="white"
-                  stroke="gray"
+                  fill={tileColor}
+                  stroke={jointColor}
                   strokeWidth={0.5}
                 />
               </Group>
@@ -185,13 +281,16 @@ export default function useTiles({ points, startPoint, scale, tileW, tileH, spac
               } else {
                 if (useOffcuts) offcuts.push(tw - partWidth);
               }
+              const img = new window.Image();
+              img.src = stripesPatternUrl;
               tiles.push(
                 <Group key={`${row}-partial`} x={partialX} y={tileY} rotation={orientation}>
                   <Rect
                     width={partWidth}
                     height={th}
-                    fill={color}
-                    stroke="gray"
+                    fillPatternImage={img}
+                    fillPatternRepeat="repeat"
+                    stroke={jointColor}
                     strokeWidth={0.5}
                   />
                 </Group>
@@ -233,13 +332,16 @@ export default function useTiles({ points, startPoint, scale, tileW, tileH, spac
               } else {
                 if (useOffcuts) offcuts.push(tw - partWidth);
               }
+              const img = new window.Image();
+              img.src = stripesPatternUrl;
               tiles.push(
                 <Group key={`${row}-partial`} x={partialX} y={tileY} rotation={orientation}>
                   <Rect
                     width={partWidth}
                     height={th}
-                    fill={color}
-                    stroke="gray"
+                    fillPatternImage={img}
+                    fillPatternRepeat="repeat"
+                    stroke={jointColor}
                     strokeWidth={0.5}
                   />
                 </Group>
@@ -286,5 +388,5 @@ export default function useTiles({ points, startPoint, scale, tileW, tileH, spac
         {tiles}
       </Group>
     );
-  }, [points, startPoint, scale, tileW, tileH, spacing, pattern, orientation, getStartCornerType, useOffcuts, setTileCount]);
+  }, [points, startPoint, scale, tileW, tileH, spacing, pattern, orientation, getStartCornerType, useOffcuts, setTileCount, jointColor, tileColor]);
 }
