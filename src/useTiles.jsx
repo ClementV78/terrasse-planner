@@ -155,6 +155,8 @@ export default function useTiles({ points, startPoint, scale, tileW, tileH, spac
         ];
         const cornersInside = corners.filter(([cx, cy]) => isPointInPolygon(cx, cy)).length;
         if (cornersInside > 0) {
+          // carreau partiel (motif rayé ou croisé si chute utilisée)
+          let isChute = false;
           let color = '#e5e7eb';
           let usedOffcut = null;
           if (useOffcuts) {
@@ -170,11 +172,12 @@ export default function useTiles({ points, startPoint, scale, tileW, tileH, spac
             offcuts.splice(usedOffcut, 1);
             offcutCount++;
             offcutUsedCount++;
+            isChute = true;
           } else {
             if (useOffcuts) offcuts.push(tw - partWidth);
           }
           const img = new window.Image();
-          img.src = stripesPatternUrl;
+          img.src = isChute ? crossPatternUrl : stripesPatternUrl;
           tiles.push(
             <Group key={`${row}-debut-partial`} x={partStartX} y={tileY} rotation={orientation}>
               <Rect
@@ -263,32 +266,35 @@ export default function useTiles({ points, startPoint, scale, tileW, tileH, spac
             ];
             const cornersInside = corners.filter(([cx, cy]) => isPointInPolygon(cx, cy)).length;
             if (cornersInside > 0) {
-              let color = '#e5e7eb';
-              let usedOffcut = null;
+              // carreau partiel (fin de ligne, motif rayé ou croisé si chute utilisée)
+              let isChuteEnd = false;
+              let colorEnd = '#e5e7eb';
+              let usedOffcutEnd = null;
               if (useOffcuts) {
                 for (let i = 0; i < offcuts.length; i++) {
                   if (offcuts[i] >= partWidth - 0.1) {
-                    usedOffcut = i;
+                    usedOffcutEnd = i;
                     break;
                   }
                 }
               }
-              if (usedOffcut !== null) {
-                color = '#bae6fd';
-                offcuts.splice(usedOffcut, 1);
+              if (usedOffcutEnd !== null) {
+                colorEnd = '#bae6fd';
+                offcuts.splice(usedOffcutEnd, 1);
                 offcutCount++;
                 offcutUsedCount++;
+                isChuteEnd = true;
               } else {
                 if (useOffcuts) offcuts.push(tw - partWidth);
               }
-              const img = new window.Image();
-              img.src = stripesPatternUrl;
+              const imgEnd = new window.Image();
+              imgEnd.src = isChuteEnd ? crossPatternUrl : stripesPatternUrl;
               tiles.push(
                 <Group key={`${row}-partial`} x={partialX} y={tileY} rotation={orientation}>
                   <Rect
                     width={partWidth}
                     height={th}
-                    fillPatternImage={img}
+                    fillPatternImage={imgEnd}
                     fillPatternRepeat="repeat"
                     stroke={jointColor}
                     strokeWidth={0.5}
@@ -314,32 +320,35 @@ export default function useTiles({ points, startPoint, scale, tileW, tileH, spac
             ];
             const cornersInside = corners.filter(([cx, cy]) => isPointInPolygon(cx, cy)).length;
             if (cornersInside > 0) {
-              let color = '#e5e7eb';
-              let usedOffcut = null;
+              // carreau partiel (fin de ligne, motif rayé ou croisé si chute utilisée)
+              let isChuteEnd = false;
+              let colorEnd = '#e5e7eb';
+              let usedOffcutEnd = null;
               if (useOffcuts) {
                 for (let i = 0; i < offcuts.length; i++) {
                   if (offcuts[i] >= partWidth - 0.1) {
-                    usedOffcut = i;
+                    usedOffcutEnd = i;
                     break;
                   }
                 }
               }
-              if (usedOffcut !== null) {
-                color = '#bae6fd';
-                offcuts.splice(usedOffcut, 1);
+              if (usedOffcutEnd !== null) {
+                colorEnd = '#bae6fd';
+                offcuts.splice(usedOffcutEnd, 1);
                 offcutCount++;
                 offcutUsedCount++;
+                isChuteEnd = true;
               } else {
                 if (useOffcuts) offcuts.push(tw - partWidth);
               }
-              const img = new window.Image();
-              img.src = stripesPatternUrl;
+              const imgEnd = new window.Image();
+              imgEnd.src = isChuteEnd ? crossPatternUrl : stripesPatternUrl;
               tiles.push(
                 <Group key={`${row}-partial`} x={partialX} y={tileY} rotation={orientation}>
                   <Rect
                     width={partWidth}
                     height={th}
-                    fillPatternImage={img}
+                    fillPatternImage={imgEnd}
                     fillPatternRepeat="repeat"
                     stroke={jointColor}
                     strokeWidth={0.5}

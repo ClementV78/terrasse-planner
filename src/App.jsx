@@ -143,7 +143,6 @@ export default function App() {
     const width = stageSize.width;
     const height = stageSize.height;
     const decimetreSize = scale / 10;
-    
     // Lignes verticales
     for (let x = 0; x <= width; x += decimetreSize) {
       const isMetre = x % scale === 0;
@@ -151,8 +150,8 @@ export default function App() {
         <Line
           key={`v${x}`}
           points={[x, 0, x, height]}
-          stroke="#ddd"
-          strokeWidth={isMetre ? 0.5 : 0.1}
+          stroke="#d1d5db" // gris clair un peu plus foncé
+          strokeWidth={isMetre ? 0.7 : 0.2}
           dash={isMetre ? [2, 4] : [1, 3]}
         />
       );
@@ -169,7 +168,6 @@ export default function App() {
         );
       }
     }
-    
     // Lignes horizontales
     for (let y = 0; y <= height; y += decimetreSize) {
       const isMetre = y % scale === 0;
@@ -177,8 +175,8 @@ export default function App() {
         <Line
           key={`h${y}`}
           points={[0, y, width, y]}
-          stroke="#ddd"
-          strokeWidth={isMetre ? 0.5 : 0.1}
+          stroke="#d1d5db"
+          strokeWidth={isMetre ? 0.7 : 0.2}
           dash={isMetre ? [2, 4] : [1, 3]}
         />
       );
@@ -195,7 +193,6 @@ export default function App() {
         );
       }
     }
-    
     return gridLines;
   }, [gridVisible, scale, stageSize]);
 
@@ -341,6 +338,61 @@ export default function App() {
     reader.readAsText(file);
   };
 
+  // Gestion du zoom à la molette sur le plan
+  React.useEffect(() => {
+    window.onZoomDrawingCanvas = (delta) => {
+      setScale(prev => {
+        let next = prev + (delta > 0 ? -10 : 10);
+        next = Math.max(40, Math.min(200, next)); // Limite le zoom entre 40 et 200 px/m
+        return next;
+      });
+    };
+    return () => { window.onZoomDrawingCanvas = undefined; };
+  }, []);
+
+  // Zoom graphique (1 = 100%)
+  const [zoom, setZoom] = useState(1);
+
+  // Gestion du zoom à la molette sur le plan (graphique)
+  React.useEffect(() => {
+    window.onZoomDrawingCanvas = (delta) => {
+      setZoom(prev => {
+        let next = prev + (delta > 0 ? -0.1 : 0.1);
+        next = Math.max(0.3, Math.min(2.5, next)); // Limite le zoom entre 0.3x et 2.5x
+        return Math.round(next * 100) / 100;
+      });
+    };
+    return () => { window.onZoomDrawingCanvas = undefined; };
+  }, []);
+
+  // Pan (décalage du dessin)
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const panStart = useRef({ x: 0, y: 0 });
+
+  // Gestion du drag pour le pan
+  useEffect(() => {
+    function onMouseMove(e) {
+      if (isPanning) {
+        setPan(prev => ({
+          x: prev.x + e.movementX,
+          y: prev.y + e.movementY
+        }));
+      }
+    }
+    function onMouseUp() {
+      setIsPanning(false);
+    }
+    if (isPanning) {
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('mouseup', onMouseUp);
+    }
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+  }, [isPanning]);
+
   return (
     <div className="p-4 flex gap-4 h-screen" style={{minHeight: '100vh'}}>
       <div
@@ -401,6 +453,9 @@ export default function App() {
           setMousePos={setMousePos}
           stageRef={stageRef}
           scale={scale}
+          zoom={zoom}
+          pan={pan}
+          setIsPanning={setIsPanning}
         />
       </div>
     </div>

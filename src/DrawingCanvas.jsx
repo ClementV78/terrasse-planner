@@ -3,13 +3,28 @@ import { Stage, Layer, Line, Rect, Group, Circle, Text } from 'react-konva';
 
 export default function DrawingCanvas({
   stageSize, drawing, points, mousePos, calepinageMode, startPoint,
-  handleClick, renderGrid, renderDimensions, renderTiles, isCorner, setMousePos, stageRef, scale
+  handleClick, renderGrid, renderDimensions, renderTiles, isCorner, setMousePos, stageRef, scale, zoom, pan, setIsPanning
 }) {
   return (
     <Stage
       width={stageSize.width}
       height={stageSize.height}
       onClick={handleClick}
+      onWheel={e => {
+        e.evt.preventDefault();
+        const delta = e.evt.deltaY;
+        // Appelle la prop onZoom si fournie
+        if (typeof window.onZoomDrawingCanvas === 'function') {
+          window.onZoomDrawingCanvas(delta);
+        }
+      }}
+      onMouseDown={e => {
+        // Pan uniquement si on ne dessine pas
+        if (!drawing) {
+          e.evt.preventDefault();
+          if (typeof setIsPanning === 'function') setIsPanning(true);
+        }
+      }}
       onMouseMove={(e) => {
         if (!drawing) return;
         const stage = e.target.getStage();
@@ -31,8 +46,15 @@ export default function DrawingCanvas({
       ref={stageRef}
       className="border rounded"
     >
-      <Layer>
-        {renderGrid()}
+      {/* Quadrillage : zoomé mais non déplacé */}
+      <Layer listening={false} scaleX={zoom} scaleY={zoom}>{renderGrid()}</Layer>
+      {/* Tout le reste subit zoom/pan */}
+      <Layer
+        scaleX={zoom}
+        scaleY={zoom}
+        x={pan.x}
+        y={pan.y}
+      >
         {points.length > 0 && (
           <Line
             points={points}

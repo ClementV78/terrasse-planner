@@ -119,6 +119,23 @@ export default function Sidebar({
           </div>
         </div>
       </div>
+      <div className="mt-6 border-t pt-3">
+        <h4 className="font-semibold text-base mb-2">Légende</h4>
+        <div className="flex flex-col gap-2 text-sm">
+          <div className="flex items-center gap-2">
+            <span className="inline-block w-7 h-7 rounded border border-gray-400" style={{background: tileColor}}></span>
+            <span>Carreau entier</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="inline-block w-7 h-7 rounded border border-gray-400" style={{background: `url('data:image/svg+xml;utf8,<svg width=\'12\' height=\'12\' xmlns=\'http://www.w3.org/2000/svg\'><rect width=\'12\' height=\'12\' fill=\'${encodeURIComponent(tileColor)}\'/><path d=\'M0,12 L12,0\' stroke=\'%23888\' stroke-width=\'2\'/></svg>') repeat`}}></span>
+            <span>Carreau coupé</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="inline-block w-7 h-7 rounded border border-gray-400" style={{background: `url('data:image/svg+xml;utf8,<svg width=\'12\' height=\'12\' xmlns=\'http://www.w3.org/2000/svg\'><rect width=\'12\' height=\'12\' fill=\'${encodeURIComponent(tileColor)}\'/><path d=\'M0,12 L12,0 M0,0 L12,12\' stroke=\'%23444\' stroke-width=\'2\'/></svg>') repeat`}}></span>
+            <span>Chute réutilisée</span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
