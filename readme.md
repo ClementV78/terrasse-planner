@@ -1,7 +1,5 @@
 # Terrasse Planner
 
-![Aperçu de Terrasse Planner]image.png
-
 **Terrasse Planner** est une application web intuitive pour dessiner la forme de votre terrasse, calculer sa surface, et simuler la pose de carrelage selon vos paramètres (dimensions, joints, orientation, type de pose, etc.).
 
 ---
@@ -85,7 +83,7 @@ Ce projet est sous licence MIT.
 
 ## 👤 Auteur
 
-- [Votre nom ou pseudo](https://github.com/<votre-utilisateur>)
+- [ClementV78](https://github.com/ClementV78)
 
 ---
 
