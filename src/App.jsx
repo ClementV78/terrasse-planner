@@ -38,6 +38,8 @@ export default function App() {
   const [selectedPoint, setSelectedPoint] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
 
+  const [useOffcuts, setUseOffcuts] = useState(true);
+
   // Gestion du redimensionnement
   useEffect(() => {
     const updateDimensions = () => {
@@ -396,6 +398,8 @@ export default function App() {
     let partialCount = 0;
     let offcutCount = 0;
     let offcuts = [];
+    let offcutUsedCount = 0;
+    let partialCountNoOffcut = 0;
 
     const isPointInPolygon = (x, y) => {
       let inside = false;
@@ -447,10 +451,12 @@ export default function App() {
         if (cornersInside > 0) {
           // Gestion des chutes pour le demi-carreau
           let usedOffcut = null;
-          for (let i = 0; i < offcuts.length; i++) {
-            if (offcuts[i] >= partWidth - 0.1) { // tolérance
-              usedOffcut = i;
-              break;
+          if (useOffcuts) {
+            for (let i = 0; i < offcuts.length; i++) {
+              if (offcuts[i] >= partWidth - 0.1) { // tolérance
+                usedOffcut = i;
+                break;
+              }
             }
           }
           let color = '#e5e7eb';
@@ -458,9 +464,9 @@ export default function App() {
             color = '#bae6fd';
             offcuts.splice(usedOffcut, 1);
             offcutCount++;
+            offcutUsedCount++;
           } else {
-            // Ajoute la chute restante
-            offcuts.push(tw - partWidth);
+            if (useOffcuts) offcuts.push(tw - partWidth);
           }
           tiles.push(
             <Group key={`${row}-debut-partial`} x={partStartX} y={tileY} rotation={orientation}>
@@ -474,6 +480,7 @@ export default function App() {
             </Group>
           );
           partialCount++;
+          partialCountNoOffcut++;
         }
         x = isLeftToRight ? partStartX + partWidth + sp : partStartX - sp;
         col++;
@@ -547,10 +554,12 @@ export default function App() {
         if (cornersInside > 0) {
           // Gestion des chutes pour le carreau partiel
           let usedOffcut = null;
-          for (let i = 0; i < offcuts.length; i++) {
-            if (offcuts[i] >= partWidth - 0.1) {
-              usedOffcut = i;
-              break;
+          if (useOffcuts) {
+            for (let i = 0; i < offcuts.length; i++) {
+              if (offcuts[i] >= partWidth - 0.1) {
+                usedOffcut = i;
+                break;
+              }
             }
           }
           let color = '#e5e7eb';
@@ -558,9 +567,9 @@ export default function App() {
             color = '#bae6fd';
             offcuts.splice(usedOffcut, 1);
             offcutCount++;
+            offcutUsedCount++;
           } else {
-            // Ajoute la chute restante
-            offcuts.push(tw - partWidth);
+            if (useOffcuts) offcuts.push(tw - partWidth);
           }
           tiles.push(
             <Group key={`${row}-partial`} x={partialX} y={tileY} rotation={orientation}>
@@ -574,12 +583,34 @@ export default function App() {
             </Group>
           );
           partialCount++;
+          partialCountNoOffcut++;
         }
       }
     }
 
+    // Calcul du nombre total de carreaux utilisés
+    let totalTiles;
+    if (useOffcuts) {
+      // Les carreaux issus de chutes ne nécessitent pas de nouveau carreau
+      totalTiles = fullCount + Math.ceil(partialCount - offcutUsedCount);
+    } else {
+      totalTiles = fullCount + partialCount;
+    }
+    let totalTilesNoOffcut = fullCount + partialCount;
+    let gain = 0;
+    if (useOffcuts && totalTilesNoOffcut > 0) {
+      gain = 100 * (totalTilesNoOffcut - totalTiles) / totalTilesNoOffcut;
+    }
+
     setTimeout(() => {
-      setTileCount({ full: fullCount, partial: partialCount });
+      setTileCount({
+        full: fullCount,
+        partial: partialCount,
+        offcutUsed: offcutUsedCount,
+        total: totalTiles,
+        totalNoOffcut: totalTilesNoOffcut,
+        gain: gain
+      });
     }, 0);
 
     return (
@@ -596,7 +627,7 @@ export default function App() {
         {tiles}
       </Group>
     );
-  }, [points, startPoint, scale, tileW, tileH, spacing, pattern, orientation, getStartCornerType]);
+  }, [points, startPoint, scale, tileW, tileH, spacing, pattern, orientation, getStartCornerType, useOffcuts]);
 
   // Sauvegarde du plan
   const handleSave = () => {
@@ -676,7 +707,10 @@ export default function App() {
                   <>
                     <p className="mt-2">Carreaux entiers : {tileCount.full}</p>
                     <p>Carreaux à couper : {tileCount.partial}</p>
-                    <p className="mt-1 text-xs">Total : {tileCount.full + tileCount.partial} carreaux</p>
+                    <p>Chutes utilisées : {tileCount.offcutUsed}</p>
+                    <p className="mt-1 text-xs">Total : {tileCount.total} carreaux</p>
+                    <p className="mt-1 text-xs">Total sans chutes : {tileCount.totalNoOffcut} carreaux</p>
+                    <p className="mt-1 text-xs">Gain : {typeof tileCount.gain === 'number' && !isNaN(tileCount.gain) ? tileCount.gain.toFixed(2) : '0.00'}%</p>
                   </>
                 )}
               </div>
@@ -831,6 +865,22 @@ export default function App() {
                 value={orientation} 
                 onChange={e => setOrientation(Number(e.target.value))} 
               />
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-sm font-medium">Utiliser les chutes</label>
+              <div className="flex items-center">
+                <input 
+                  type="checkbox" 
+                  id="useOffcuts"
+                  className="mr-2"
+                  checked={useOffcuts}
+                  onChange={(e) => setUseOffcuts(e.target.checked)}
+                />
+                <label htmlFor="useOffcuts" className="text-sm">
+                  Activer l'utilisation des chutes
+                </label>
+              </div>
             </div>
           </div>
         </div>
