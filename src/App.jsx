@@ -126,28 +126,42 @@ export default function App() {
   const renderDimensions = useCallback(() => {
     if (points.length < 4) return null;
     const dims = [];
-    
+    // Calcul du barycentre pour déterminer l'extérieur
+    let cx = 0, cy = 0, n = points.length / 2;
+    for (let i = 0; i < points.length; i += 2) {
+      cx += points[i];
+      cy += points[i + 1];
+    }
+    cx /= n;
+    cy /= n;
     for (let i = 0; i < points.length - 2; i += 2) {
       const x1 = points[i];
       const y1 = points[i + 1];
       const x2 = points[i + 2];
       const y2 = points[i + 3];
-      
       const length = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2)) / scale;
+      if (length < 0.01) continue; // Ignore les segments nuls
+      const roundedLength = Math.round(length * 10) / 10;
       const isHorizontal = Math.abs(x2 - x1) > Math.abs(y2 - y1);
-      const OFFSET = 20;
-      
+      // Décalage vers l'extérieur
+      const OFFSET = 40;
       const angle = Math.atan2(y2 - y1, x2 - x1);
-      const perpAngle = angle + Math.PI/2;
-      
-      const offsetX = OFFSET * Math.cos(perpAngle);
-      const offsetY = OFFSET * Math.sin(perpAngle);
-      
+      // Vecteur normal
+      const nx = Math.cos(angle + Math.PI / 2);
+      const ny = Math.sin(angle + Math.PI / 2);
+      // Vérifier si le barycentre est du bon côté, sinon inverser
+      const mx = (x1 + x2) / 2;
+      const my = (y1 + y2) / 2;
+      const vx = mx + nx * OFFSET - cx;
+      const vy = my + ny * OFFSET - cy;
+      const vPoly = (mx - cx) * nx + (my - cy) * ny;
+      const sign = vPoly > 0 ? 1 : -1;
+      const offsetX = OFFSET * nx * sign;
+      const offsetY = OFFSET * ny * sign;
       const coteLine1X1 = x1 + offsetX;
       const coteLine1Y1 = y1 + offsetY;
       const coteLine1X2 = x2 + offsetX;
       const coteLine1Y2 = y2 + offsetY;
-
       dims.push(
         <Group key={`dim-${i}`}>
           <Line
@@ -180,7 +194,7 @@ export default function App() {
               cornerRadius={4}
             />
             <Text
-              text={`${length.toFixed(2)}m`}
+              text={`${roundedLength.toFixed(1)}m`}
               fontSize={12}
               fontFamily="sans-serif"
               fill="#2563eb"
@@ -195,7 +209,6 @@ export default function App() {
         </Group>
       );
     }
-    
     return dims;
   }, [points, scale]);
 
@@ -263,28 +276,44 @@ export default function App() {
         );
 
         if (distance < 20) {
-          setPoints([...points, startX, startY]);
+          // Forcer le dernier point à 90°
+          const lastX = points[points.length - 2];
+          const lastY = points[points.length - 1];
+          let forcedX = startX;
+          let forcedY = startY;
+          if (Math.abs(lastX - startX) > Math.abs(lastY - startY)) {
+            forcedY = lastY;
+          } else {
+            forcedX = lastX;
+          }
+          setPoints([...points, forcedX, forcedY, startX, startY]);
           setDrawing(false);
           setArea(calculateArea());
           return;
         }
       }
 
-      // Ajouter un nouveau point avec snap à 90°
+      // Snap à 90°
       const lastX = points[points.length - 2];
       const lastY = points[points.length - 1];
-      
       if (lastX === undefined || lastY === undefined) return;
-      
-      const dx = pos.x - lastX;
-      const dy = pos.y - lastY;
-
+      let dx = pos.x - lastX;
+      let dy = pos.y - lastY;
+      let nx = lastX, ny = lastY;
       if (Math.abs(dx) > Math.abs(dy)) {
-        newPoints.push(pos.x, lastY);
+        // Horizontal
+        let length = (pos.x - lastX) / scale;
+        let roundedLength = Math.round(Math.abs(length) * 10) / 10 * Math.sign(length);
+        nx = lastX + roundedLength * scale;
+        ny = lastY;
       } else {
-        newPoints.push(lastX, pos.y);
+        // Vertical
+        let length = (pos.y - lastY) / scale;
+        let roundedLength = Math.round(Math.abs(length) * 10) / 10 * Math.sign(length);
+        nx = lastX;
+        ny = lastY + roundedLength * scale;
       }
-      
+      newPoints.push(nx, ny);
       setPoints(newPoints);
     }
   }, [drawing, points, calepinageMode, isCorner, calculateArea]);
@@ -298,6 +327,22 @@ export default function App() {
     setCalepinageMode(false);
   }, []);
 
+  // Détermine le coin sélectionné (haut-gauche, haut-droit, bas-gauche, bas-droit)
+  const getStartCornerType = useCallback(() => {
+    if (!startPoint || points.length < 6) return 'top-left';
+    const xs = points.filter((_, i) => i % 2 === 0);
+    const ys = points.filter((_, i) => i % 2 === 1);
+    const minX = Math.min(...xs);
+    const maxX = Math.max(...xs);
+    const minY = Math.min(...ys);
+    const maxY = Math.max(...ys);
+    if (Math.abs(startPoint.x - minX) < 2 && Math.abs(startPoint.y - minY) < 2) return 'top-left';
+    if (Math.abs(startPoint.x - maxX) < 2 && Math.abs(startPoint.y - minY) < 2) return 'top-right';
+    if (Math.abs(startPoint.x - minX) < 2 && Math.abs(startPoint.y - maxY) < 2) return 'bottom-left';
+    if (Math.abs(startPoint.x - maxX) < 2 && Math.abs(startPoint.y - maxY) < 2) return 'bottom-right';
+    return 'top-left';
+  }, [startPoint, points]);
+
   // Fonction pour le comptage et l'affichage des carreaux
   const renderTiles = useCallback(() => {
     if (!startPoint || points.length < 6) return null;
@@ -306,7 +351,6 @@ export default function App() {
     const th = tileH * scale;
     const sp = (spacing / 1000) * scale;
 
-    // Trouver les limites de la forme
     const xs = points.filter((_, i) => i % 2 === 0);
     const ys = points.filter((_, i) => i % 2 === 1);
     const minX = Math.min(...xs);
@@ -329,57 +373,140 @@ export default function App() {
       return inside;
     };
 
-    // Correction : le carreau (0,0) commence exactement sur startPoint
-    // On va balayer autour du startPoint, et non autour de minX/minY
-    // On cherche le nombre de carreaux à gauche/droite/haut/bas à partir du startPoint
     const tiles = [];
-    // On prend une marge large pour couvrir toute la terrasse
-    const margin = Math.max(maxX - minX, maxY - minY) + Math.max(tw, th) * 2;
-    // On va balayer de -N à +N carreaux autour du startPoint
-    const nX = Math.ceil(margin / (tw + sp));
-    const nY = Math.ceil(margin / (th + sp));
+    const heightPoly = maxY - minY;
+    const nY = Math.ceil((heightPoly + th * 2) / (th + sp));
 
-    for (let row = -nY; row <= nY; row++) {
-      for (let col = -nX; col <= nX; col++) {
-        // Décalage pour motif décalé
-        const offsetX = pattern === 'offset' && row % 2 === 1 ? (tw + sp) / 2 : 0;
-        // Position du carreau
-        const tileX = startPoint.x + col * (tw + sp) + offsetX;
-        const tileY = startPoint.y + row * (th + sp);
+    // Détermine le sens de pose selon le coin de départ
+    const cornerType = getStartCornerType();
+    const goingRight = !(cornerType === 'top-right' || cornerType === 'bottom-right');
+    const goingDown = !(cornerType === 'bottom-left' || cornerType === 'bottom-right');
 
-        // Vérifier si le carreau est dans la forme
+    const xSign = goingRight ? 1 : -1;
+    const ySign = goingDown ? 1 : -1;
+
+    for (let row = 0; row < nY; row++) {
+      const tileY = startPoint.y + ySign * row * (th + sp);
+      let x = startPoint.x;
+      let col = 0;
+      const isLeftToRight = xSign > 0;
+      let offset = 0;
+      let startWithHalf = false;
+      if (pattern === 'offset' && row % 2 === 1) {
+        offset = (tw + sp) / 2;
+        x = isLeftToRight ? x + offset : x - offset;
+        startWithHalf = true;
+      }
+      // Place le demi-carreau en début de ligne si besoin
+      if (startWithHalf) {
+        const partWidth = tw / 2;
+        const partialX = isLeftToRight ? (isLeftToRight ? minX : maxX) : (isLeftToRight ? minX : maxX);
+        const firstX = isLeftToRight ? startPoint.x : startPoint.x - tw / 2;
+        const px = isLeftToRight ? minX : maxX - partWidth;
+        const partStartX = isLeftToRight ? startPoint.x : startPoint.x - partWidth;
         const corners = [
-          [tileX, tileY],
-          [tileX + tw, tileY],
-          [tileX + tw, tileY + th],
-          [tileX, tileY + th]
+          [partStartX, tileY],
+          [partStartX + (isLeftToRight ? 1 : -1) * partWidth, tileY],
+          [partStartX + (isLeftToRight ? 1 : -1) * partWidth, tileY + ySign * th],
+          [partStartX, tileY + ySign * th]
         ];
-        const cornersInside = corners.filter(([cx, cy]) => 
-          isPointInPolygon(cx, cy)
-        ).length;
-
+        const cornersInside = corners.filter(([cx, cy]) => isPointInPolygon(cx, cy)).length;
         if (cornersInside > 0) {
           tiles.push(
-            <Group 
-              key={`${col}-${row}`} 
-              x={tileX}
-              y={tileY}
-              rotation={orientation}
-            >
+            <Group key={`${row}-debut-partial`} x={partStartX} y={tileY} rotation={orientation}>
               <Rect
-                width={tw}
+                width={partWidth}
                 height={th}
-                fill="white"
+                fill="#e5e7eb"
                 stroke="gray"
                 strokeWidth={0.5}
               />
             </Group>
           );
-          if (cornersInside === 4) {
+          partialCount++;
+        }
+        x = isLeftToRight ? partStartX + partWidth + sp : partStartX - sp;
+        col++;
+      }
+      // Place les carreaux entiers
+      if (isLeftToRight) {
+        while (x + tw <= maxX + 0.01) {
+          const corners = [
+            [x, tileY],
+            [x + tw, tileY],
+            [x + tw, tileY + ySign * th],
+            [x, tileY + ySign * th]
+          ];
+          const cornersInside = corners.filter(([cx, cy]) => isPointInPolygon(cx, cy)).length;
+          if (cornersInside > 0) {
+            tiles.push(
+              <Group key={`${row}-${col}`} x={x} y={tileY} rotation={orientation}>
+                <Rect
+                  width={tw}
+                  height={th}
+                  fill="white"
+                  stroke="gray"
+                  strokeWidth={0.5}
+                />
+              </Group>
+            );
             fullCount++;
-          } else {
-            partialCount++;
           }
+          x += tw + sp;
+          col++;
+        }
+      } else {
+        while (x - tw >= minX - 0.01) {
+          const corners = [
+            [x, tileY],
+            [x - tw, tileY],
+            [x - tw, tileY + ySign * th],
+            [x, tileY + ySign * th]
+          ];
+          const cornersInside = corners.filter(([cx, cy]) => isPointInPolygon(cx, cy)).length;
+          if (cornersInside > 0) {
+            tiles.push(
+              <Group key={`${row}-${col}`} x={x - tw} y={tileY} rotation={orientation}>
+                <Rect
+                  width={tw}
+                  height={th}
+                  fill="white"
+                  stroke="gray"
+                  strokeWidth={0.5}
+                />
+              </Group>
+            );
+            fullCount++;
+          }
+          x -= tw + sp;
+          col++;
+        }
+      }
+      // Place un carreau partiel si nécessaire
+      let remainingSpace = isLeftToRight ? (maxX - x + 0.01) : (x - minX + 0.01);
+      if (remainingSpace > 0.01 && remainingSpace < tw) {
+        const partWidth = remainingSpace;
+        const partialX = isLeftToRight ? maxX - partWidth : minX;
+        const corners = [
+          [partialX, tileY],
+          [partialX + (isLeftToRight ? 1 : -1) * partWidth, tileY],
+          [partialX + (isLeftToRight ? 1 : -1) * partWidth, tileY + ySign * th],
+          [partialX, tileY + ySign * th]
+        ];
+        const cornersInside = corners.filter(([cx, cy]) => isPointInPolygon(cx, cy)).length;
+        if (cornersInside > 0) {
+          tiles.push(
+            <Group key={`${row}-partial`} x={partialX} y={tileY} rotation={orientation}>
+              <Rect
+                width={partWidth}
+                height={th}
+                fill="#e5e7eb"
+                stroke="gray"
+                strokeWidth={0.5}
+              />
+            </Group>
+          );
+          partialCount++;
         }
       }
     }
@@ -402,7 +529,7 @@ export default function App() {
         {tiles}
       </Group>
     );
-  }, [points, startPoint, scale, tileW, tileH, spacing, pattern, orientation]);
+  }, [points, startPoint, scale, tileW, tileH, spacing, pattern, orientation, getStartCornerType]);
 
   return (
     <div className="p-4 grid grid-cols-4 gap-4">
@@ -636,6 +763,7 @@ export default function App() {
                       const x2 = mousePos.x;
                       const y2 = mousePos.y;
                       const length = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2)) / scale;
+                      const roundedLength = Math.round(length * 10) / 10; // arrondi au décimètre
                       const midX = (x1 + x2) / 2;
                       const midY = (y1 + y2) / 2;
                       let angle = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI;
@@ -654,7 +782,7 @@ export default function App() {
                             cornerRadius={4}
                           />
                           <Text
-                            text={`${length.toFixed(2)}m`}
+                            text={`${roundedLength.toFixed(1)}m`}
                             fontSize={12}
                             fontFamily="sans-serif"
                             fill="#2563eb"
