@@ -5,23 +5,33 @@ export default function App() {
   const containerRef = useRef(null);
   const stageRef = useRef();
 
+  // Chargement initial depuis localStorage
+  const getInitialPlan = () => {
+    try {
+      const saved = localStorage.getItem('terrasseplanner-plan');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return {};
+  };
+  const initialPlan = getInitialPlan();
+
   // États de base
   const [stageSize, setStageSize] = useState({ width: 800, height: 600 });
-  const [points, setPoints] = useState([]);
+  const [points, setPoints] = useState(initialPlan.points || []);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [drawing, setDrawing] = useState(false);
-  const [scale, setScale] = useState(80);
+  const [scale, setScale] = useState(typeof initialPlan.scale === 'number' ? initialPlan.scale : 80);
   const [area, setArea] = useState(0);
   const [gridVisible, setGridVisible] = useState(true);
 
   // États pour le calepinage
-  const [tileW, setTileW] = useState(0.30);
-  const [tileH, setTileH] = useState(0.30);
-  const [spacing, setSpacing] = useState(3);
-  const [pattern, setPattern] = useState('straight');
-  const [orientation, setOrientation] = useState(0);
+  const [tileW, setTileW] = useState(typeof initialPlan.tileW === 'number' ? initialPlan.tileW : 120); // largeur en cm
+  const [tileH, setTileH] = useState(typeof initialPlan.tileH === 'number' ? initialPlan.tileH : 30);  // hauteur en cm
+  const [spacing, setSpacing] = useState(typeof initialPlan.spacing === 'number' ? initialPlan.spacing : 3);
+  const [pattern, setPattern] = useState(initialPlan.pattern || 'straight');
+  const [orientation, setOrientation] = useState(typeof initialPlan.orientation === 'number' ? initialPlan.orientation : 0);
   const [calepinageMode, setCalepinageMode] = useState(false);
-  const [startPoint, setStartPoint] = useState(null);
+  const [startPoint, setStartPoint] = useState(initialPlan.startPoint || null);
   const [tileCount, setTileCount] = useState({ full: 0, partial: 0 });
 
   // États pour le drag & drop
@@ -44,6 +54,21 @@ export default function App() {
     window.addEventListener('resize', updateDimensions);
     return () => window.removeEventListener('resize', updateDimensions);
   }, []);
+
+  // Sauvegarde automatique dans localStorage à chaque modification du plan
+  useEffect(() => {
+    const data = {
+      points,
+      tileW,
+      tileH,
+      spacing,
+      pattern,
+      orientation,
+      startPoint,
+      scale
+    };
+    localStorage.setItem('terrasseplanner-plan', JSON.stringify(data));
+  }, [points, tileW, tileH, spacing, pattern, orientation, startPoint, scale]);
 
   // Fonction pour calculer l'aire
   const calculateArea = useCallback(() => {
@@ -347,8 +372,8 @@ export default function App() {
   const renderTiles = useCallback(() => {
     if (!startPoint || points.length < 6) return null;
 
-    const tw = tileW * scale;
-    const th = tileH * scale;
+    const tw = tileW / 100 * scale; // conversion cm -> m -> px
+    const th = tileH / 100 * scale;
     const sp = (spacing / 1000) * scale;
 
     const xs = points.filter((_, i) => i % 2 === 0);
@@ -531,6 +556,52 @@ export default function App() {
     );
   }, [points, startPoint, scale, tileW, tileH, spacing, pattern, orientation, getStartCornerType]);
 
+  // Sauvegarde du plan
+  const handleSave = () => {
+    const data = {
+      points,
+      tileW,
+      tileH,
+      spacing,
+      pattern,
+      orientation,
+      startPoint,
+      scale
+    };
+    const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'plan-terrasse.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Chargement du plan
+  const handleLoad = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const data = JSON.parse(evt.target.result);
+        if (data.points && Array.isArray(data.points)) setPoints(data.points);
+        if (typeof data.tileW === 'number') setTileW(data.tileW);
+        if (typeof data.tileH === 'number') setTileH(data.tileH);
+        if (typeof data.spacing === 'number') setSpacing(data.spacing);
+        if (typeof data.pattern === 'string') setPattern(data.pattern);
+        if (typeof data.orientation === 'number') setOrientation(data.orientation);
+        if (data.startPoint) setStartPoint(data.startPoint);
+        if (typeof data.scale === 'number') setScale(data.scale);
+        setDrawing(false);
+        setCalepinageMode(false);
+      } catch (err) {
+        alert('Erreur lors du chargement du plan.');
+      }
+    };
+    reader.readAsText(file);
+  };
+
   return (
     <div className="p-4 grid grid-cols-4 gap-4">
       <div className="col-span-1 space-y-4">
@@ -622,6 +693,25 @@ export default function App() {
 
         <div className="bg-white p-4 rounded-lg shadow space-y-4">
           <h3 className="font-medium">Configuration</h3>
+
+          {/* Boutons sauvegarder/charger */}
+          <div className="flex gap-2 mb-2">
+            <button
+              className="px-3 py-2 bg-gray-200 rounded hover:bg-gray-300 text-sm"
+              onClick={handleSave}
+            >
+              Sauvegarder le plan
+            </button>
+            <label className="px-3 py-2 bg-gray-200 rounded hover:bg-gray-300 text-sm cursor-pointer">
+              Charger un plan
+              <input
+                type="file"
+                accept="application/json"
+                style={{ display: 'none' }}
+                onChange={handleLoad}
+              />
+            </label>
+          </div>
           
           <div className="space-y-2">
             <label className="block text-sm font-medium">Affichage</label>
@@ -643,24 +733,24 @@ export default function App() {
             <h4 className="font-medium">Carrelage</h4>
             
             <div className="space-y-2">
-              <label className="block text-sm font-medium">Largeur du carreau (m)</label>
+              <label className="block text-sm font-medium">Largeur du carreau (cm)</label>
               <input 
                 type="number" 
                 className="w-full px-3 py-2 border rounded" 
-                min="0.1"
-                step="0.01" 
+                min="1"
+                step="1" 
                 value={tileW} 
                 onChange={e => setTileW(Number(e.target.value))} 
               />
             </div>
 
             <div className="space-y-2">
-              <label className="block text-sm font-medium">Hauteur du carreau (m)</label>
+              <label className="block text-sm font-medium">Hauteur du carreau (cm)</label>
               <input 
                 type="number" 
                 className="w-full px-3 py-2 border rounded" 
-                min="0.1"
-                step="0.01" 
+                min="1"
+                step="1" 
                 value={tileH} 
                 onChange={e => setTileH(Number(e.target.value))} 
               />
