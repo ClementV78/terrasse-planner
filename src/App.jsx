@@ -84,6 +84,15 @@ export default function App() {
     return Math.abs(area / (2 * scale * scale));
   }, [points, scale]);
 
+  // Recalcul automatique de la surface dès que les points changent et que le dessin est fermé
+  useEffect(() => {
+    if (!drawing && points.length >= 6) {
+      setArea(calculateArea());
+    } else {
+      setArea(0);
+    }
+  }, [points, drawing, calculateArea]);
+
   // Fonction pour le quadrillage
   const renderGrid = useCallback(() => {
     if (!gridVisible) return null;
