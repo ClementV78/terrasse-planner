@@ -394,6 +394,8 @@ export default function App() {
 
     let fullCount = 0;
     let partialCount = 0;
+    let offcutCount = 0;
+    let offcuts = [];
 
     const isPointInPolygon = (x, y) => {
       let inside = false;
@@ -434,9 +436,6 @@ export default function App() {
       // Place le demi-carreau en début de ligne si besoin
       if (startWithHalf) {
         const partWidth = tw / 2;
-        const partialX = isLeftToRight ? (isLeftToRight ? minX : maxX) : (isLeftToRight ? minX : maxX);
-        const firstX = isLeftToRight ? startPoint.x : startPoint.x - tw / 2;
-        const px = isLeftToRight ? minX : maxX - partWidth;
         const partStartX = isLeftToRight ? startPoint.x : startPoint.x - partWidth;
         const corners = [
           [partStartX, tileY],
@@ -446,12 +445,29 @@ export default function App() {
         ];
         const cornersInside = corners.filter(([cx, cy]) => isPointInPolygon(cx, cy)).length;
         if (cornersInside > 0) {
+          // Gestion des chutes pour le demi-carreau
+          let usedOffcut = null;
+          for (let i = 0; i < offcuts.length; i++) {
+            if (offcuts[i] >= partWidth - 0.1) { // tolérance
+              usedOffcut = i;
+              break;
+            }
+          }
+          let color = '#e5e7eb';
+          if (usedOffcut !== null) {
+            color = '#bae6fd';
+            offcuts.splice(usedOffcut, 1);
+            offcutCount++;
+          } else {
+            // Ajoute la chute restante
+            offcuts.push(tw - partWidth);
+          }
           tiles.push(
             <Group key={`${row}-debut-partial`} x={partStartX} y={tileY} rotation={orientation}>
               <Rect
                 width={partWidth}
                 height={th}
-                fill="#e5e7eb"
+                fill={color}
                 stroke="gray"
                 strokeWidth={0.5}
               />
@@ -529,12 +545,29 @@ export default function App() {
         ];
         const cornersInside = corners.filter(([cx, cy]) => isPointInPolygon(cx, cy)).length;
         if (cornersInside > 0) {
+          // Gestion des chutes pour le carreau partiel
+          let usedOffcut = null;
+          for (let i = 0; i < offcuts.length; i++) {
+            if (offcuts[i] >= partWidth - 0.1) {
+              usedOffcut = i;
+              break;
+            }
+          }
+          let color = '#e5e7eb';
+          if (usedOffcut !== null) {
+            color = '#bae6fd';
+            offcuts.splice(usedOffcut, 1);
+            offcutCount++;
+          } else {
+            // Ajoute la chute restante
+            offcuts.push(tw - partWidth);
+          }
           tiles.push(
             <Group key={`${row}-partial`} x={partialX} y={tileY} rotation={orientation}>
               <Rect
                 width={partWidth}
                 height={th}
-                fill="#e5e7eb"
+                fill={color}
                 stroke="gray"
                 strokeWidth={0.5}
               />
